@@ -11,9 +11,11 @@
 #define LOUNGE_USER_HPP
 
 #include "config.hpp"
-#include "message.hpp"
+#include <boost/beast/_experimental/json/value.hpp>
 #include <boost/smart_ptr/weak_ptr.hpp>
 #include <string>
+
+class message;
 
 /// Represents a connected user
 class user
@@ -25,11 +27,16 @@ public:
     boost::weak_ptr<user>
     get_weak_ptr() = 0;
 
-    /** Send a message
+    /** Send a JSON message
 
         Messages are queued as needed.
         May be called from any thread.
     */
+    virtual
+    void
+    send(json::value const& jv) = 0;
+
+    /// Send a message
     virtual
     void
     send(message m) = 0;

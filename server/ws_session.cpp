@@ -10,6 +10,7 @@
 #include "dispatcher.hpp"
 #include "listener.hpp"
 #include "logger.hpp"
+#include "message.hpp"
 #include "server.hpp"
 #include "user.hpp"
 #include <boost/beast/websocket/stream.hpp>
@@ -170,6 +171,12 @@ public:
     get_weak_ptr() override
     {
         return impl()->weak_from_this();
+    }
+
+    void
+    send(json::value const& jv) override
+    {
+        send(make_message(jv));
     }
 
     void
