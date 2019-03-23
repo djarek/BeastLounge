@@ -11,6 +11,7 @@
 #include "logger.hpp"
 #include "server_certificate.hpp"
 #include "service.hpp"
+#include "utility.hpp"
 #include <boost/beast/core/detect_ssl.hpp>
 #include <boost/asio/coroutine.hpp>
 #include <boost/container/flat_set.hpp>
@@ -45,8 +46,7 @@ namespace {
 // a plain HTTP session or a Secure HTTP session.
 
 class detector
-    : public boost::enable_shared_from_this<detector>
-    , public boost::asio::coroutine
+    : public boost::asio::coroutine
     , public session
 {
     server& srv_;
@@ -86,13 +86,7 @@ public:
         // Use post to get on to our strand.
         net::post(
             stream_.get_executor(),
-            self(this));
-    }
-
-    boost::weak_ptr<session>
-    get_weak_session_ptr() override
-    {
-        return this->weak_from_this();
+            bind_self(this));
     }
 
     void
@@ -100,9 +94,7 @@ public:
     {
         net::post(
             stream_.get_executor(),
-            beast::bind_front_handler(
-                &detector::do_stop,
-                shared_from_this()));
+            bind_self(this, &detector::do_stop));
     }
 
     void
@@ -129,7 +121,7 @@ public:
             yield beast::async_detect_ssl(
                 stream_,
                 storage_,
-                self(this));
+                bind_self(this));
 
             // Report any error
             if(ec)
@@ -290,7 +282,7 @@ public:
             std::lock_guard<std::mutex> lock(mutex_);
             v.reserve(sessions_.size());
             for(auto p : sessions_)
-                v.emplace_back(p->get_weak_session_ptr());
+                v.emplace_back(weak_from(p));
             sessions_.clear();
             sessions_.shrink_to_fit();
         }
@@ -353,7 +345,7 @@ public:
                 yield acceptor_.async_accept(
                     srv_.make_executor(),
                     ep_,
-                    self(this));
+                    bind_self(this));
             }
         }
     }
@@ -403,7 +395,7 @@ public:
         acceptor_.async_accept(
             srv_.make_executor(),
             ep_,
-            self(this));
+            bind_self(this));
     }
 
     /// Called when the server stops

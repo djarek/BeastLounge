@@ -32,7 +32,6 @@ namespace {
 template<class Derived>
 class ws_session_base
     : public asio::coroutine
-    , public session
     , public user
 {
 protected:
@@ -68,6 +67,12 @@ public:
         return static_cast<Derived*>(this);
     }
 
+    //--------------------------------------------------------------------------
+    //
+    // ws_session
+    //
+    //--------------------------------------------------------------------------
+
     void
     run(websocket::request_type req)
     {
@@ -82,7 +87,7 @@ public:
         // TODO check credentials in `req`
 
         // Perform the WebSocket handshake in the server role
-        impl()->ws().async_accept(std::move(req), self(impl()));
+        impl()->ws().async_accept(std::move(req), bind_self(impl()));
     }
 
     void
@@ -101,7 +106,7 @@ public:
             {
                 // Read the next message
                 yield impl()->ws().async_read(
-                    msg_, self(impl()));
+                    msg_, bind_self(impl()));
 
                 // Report any errors reading
                 if(ec)
@@ -137,21 +142,14 @@ public:
     //
     // session
     //
-
-    boost::weak_ptr<session>
-    get_weak_session_ptr() override
-    {
-        return impl()->weak_from_this();
-    }
+    //--------------------------------------------------------------------------
 
     void
     on_stop() override
     {
         net::post(
             impl()->ws().get_executor(),
-            beast::bind_front_handler(
-                &ws_session_base::do_stop,
-                impl()->shared_from_this()));
+            bind_self(this, &ws_session_base::do_stop));
     }
 
     void
@@ -164,14 +162,9 @@ public:
 
     //--------------------------------------------------------------------------
     //
-    // ws_session
+    // user
     //
-
-    boost::weak_ptr<user>
-    get_weak_ptr() override
-    {
-        return impl()->weak_from_this();
-    }
+    //--------------------------------------------------------------------------
 
     void
     send(json::value const& jv) override
@@ -185,12 +178,9 @@ public:
         if(impl()->ws().get_executor().running_in_this_thread())
             do_send(std::move(m));
         else
-            net::post(
+            beast::bind_front_handler(
                 impl()->ws().get_executor(),
-                beast::bind_front_handler(
-                    &ws_session_base::do_send,
-                    impl()->shared_from_this(),
-                    std::move(m)));
+                bind_self(this, &ws_session_base::do_send));
     }
 
     void
@@ -209,8 +199,7 @@ public:
         impl()->ws().async_write(
             mq_.back(),
             beast::bind_front_handler(
-                &ws_session_base::on_write,
-                impl()->shared_from_this(),
+                bind_self(this, &ws_session_base::on_write),
                 mq_.size() - 1));
 
     }
@@ -237,10 +226,7 @@ public:
 //------------------------------------------------------------------------------
 
 class plain_ws_session_impl
-    : public boost::enable_shared_from_this<
-        plain_ws_session_impl>
-    , public ws_session_base<
-        plain_ws_session_impl>
+    : public ws_session_base<plain_ws_session_impl>
 {
     websocket::stream<stream_type> ws_;
 
@@ -256,8 +242,7 @@ public:
     {
     }
 
-    websocket::stream<
-        stream_type>&
+    websocket::stream<stream_type>&
     ws()
     {
         return ws_;
@@ -277,8 +262,7 @@ public:
 //------------------------------------------------------------------------------
 
 class ssl_ws_session_impl
-    : public boost::enable_shared_from_this<ssl_ws_session_impl>
-    , public ws_session_base<ssl_ws_session_impl>
+    : public ws_session_base<ssl_ws_session_impl>
 {
     websocket::stream<
         beast::ssl_stream<

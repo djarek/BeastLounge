@@ -27,37 +27,6 @@ class user;
 
 //------------------------------------------------------------------------------
 
-namespace detail {
-
-template<class T>
-struct self_handler
-{
-    boost::shared_ptr<T> self;
-
-    template<class... Args>
-    void
-    operator()(Args&&... args)
-    {
-        (*self)(std::forward<Args>(args)...);
-    }
-};
-
-} // detail
-
-/** Return an invocable handler for `this_`.
-
-    This work-around for C++11 missing lambda-capture expression
-    helps with implementations that use macro-based coroutines.
-*/
-template<class T>
-detail::self_handler<T>
-self(T* this_)
-{
-    return {this_->shared_from_this()};
-}
-
-//------------------------------------------------------------------------------
-
 /** An instance of the lounge server.
 */
 class server

@@ -11,21 +11,18 @@
 #define LOUNGE_USER_HPP
 
 #include "config.hpp"
+#include "session.hpp"
+#include "utility.hpp"
 #include <boost/beast/_experimental/json/value.hpp>
-#include <boost/smart_ptr/weak_ptr.hpp>
 #include <string>
 
 class message;
 
 /// Represents a connected user
-class user
+class user : public session
 {
 public:
     std::string name;
-
-    virtual
-    boost::weak_ptr<user>
-    get_weak_ptr() = 0;
 
     /** Send a JSON message
 

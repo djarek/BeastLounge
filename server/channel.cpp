@@ -63,7 +63,7 @@ public:
             std::lock_guard<std::mutex> lock(mutex_);
             v.reserve(users_.size());
             for(auto p : users_)
-                v.emplace_back(p->get_weak_ptr());
+                v.emplace_back(weak_from(p));
         }
 
         // For each user in our local list, try to
