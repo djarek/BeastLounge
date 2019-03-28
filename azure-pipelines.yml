@@ -1,0 +1,63 @@
+variables:
+  BUILD_SOURCE_BRANCH_NAME: $(Build.SourceBranchName)
+  BUILD_SOURCES_DIRECTORY: $(Build.SourcesDirectory)
+
+jobs:
+  - job: Linux
+    displayName: 'Linux'
+    pool:
+      vmImage: 'Ubuntu-16.04'
+    strategy:
+      matrix:
+        gccdefault_coverage:
+          BEAST_LOUNGE_BUILD_TYPE: Debug
+          CXX: g++
+          CC: gcc
+          INSTALL_PPAS: sudo apt install lcov -y
+          BEAST_LOUNGE_COVERAGE: '1'
+        gcc7debug_ubasan:
+          BEAST_LOUNGE_BUILD_TYPE: Debug
+          CXX: g++-7
+          CC: gcc-7
+          BEAST_LOUNGE_SANITIZE: address,undefined
+          UBSAN_OPTIONS: print_stacktrace=1
+          INSTALL_PPAS: sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        gcc8release_ubasan:
+          BEAST_LOUNGE_BUILD_TYPE: Release
+          CXX: g++-8
+          CC: gcc-8
+          BEAST_LOUNGE_SANITIZE: address,undefined
+          UBSAN_OPTIONS: print_stacktrace=1
+          INSTALL_PPAS: sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        gcc8debug_ubasan:
+          BEAST_LOUNGE_BUILD_TYPE: Debug
+          CXX: g++-8
+          CC: gcc-8
+          BEAST_LOUNGE_SANITIZE: address,undefined
+          UBSAN_OPTIONS: print_stacktrace=1
+          INSTALL_PPAS: sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        # clangdebug:
+        #   CMAKE_VARIANT: Debug
+        #   CXX: clang
+        #   CC: clang
+        # clangasan:
+        #   CMAKE_VARIANT: Debug
+        #   CXX: clang
+        #   CC: clang
+        #   CXXFLAGS: -fsanitize=address,undefined -pthread
+        # clangrelease:
+        #   CMAKE_VARIANT: Release
+        #   CXX: clang
+        #   CC: clang
+    steps:
+      - script: $INSTALL_PPAS && sudo apt-get update -y && sudo apt-get install $CXX binutils-gold cmake -y
+        displayName: 'Install compiler'
+      - script: (cd .. && sudo $BUILD_SOURCES_DIRECTORY/tools/get-boost.sh $BUILD_SOURCE_BRANCH_NAME $BUILD_SOURCES_DIRECTORY)
+        displayName: 'Get Boost'
+      - script: cmake -DCMAKE_TOOLCHAIN_FILE=tools/ci_toolchain.cmake -H. -Bbuild && make -C build all -j2
+        displayName: 'Build'
+      - script: make -C build test ARGS="-V"
+        displayName: 'Run tests'
+      - script: ./tools/coverage.sh && curl -s https://codecov.io/bash -o codecov && bash ./codecov -X gcov -f build/coverage.info -t $(CODECOV_TOKEN)
+        displayName: 'Collect coverage'
+        condition: and(succeeded(), eq(variables['BEAST_LOUNGE_COVERAGE'], '1'))
